@@ -1,5 +1,4 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
@@ -19,18 +18,18 @@ app.use("/api/auth", authRoutes);
 const questionRoutes = require("./routes/questionRoutes");
 app.use("/api/questions", questionRoutes);
 
-
 app.use((req, res) => {
   res.status(404).json({ err: "Route not found" });
 });
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => {
-    console.error("MongoDB connection err:", err);
-    process.exit(1);
+const connectDB = require("./config/db");
+
+const startServer = async () => {
+  await connectDB();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
+};
+
+startServer();

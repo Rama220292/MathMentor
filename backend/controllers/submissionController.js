@@ -1,0 +1,129 @@
+const Submission = require("../models/Submission");
+const Question = require("../models/Question");
+const gradeAnswer = require("../services/gradingService");
+
+// CREATE SUBMISSION (Student)
+const createSubmission = async (req, res) => {
+  try {
+    const { questionId, raw_input, structured_answer } = req.body;
+
+    // Get question
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ err: "Question not found" });
+    }
+
+    // Grade using gradingService
+    const gradingResult = gradeAnswer(structured_answer, question);
+
+    // Save submission
+    const submission = await Submission.create({
+      studentId: req.user.id,
+      questionId,
+      raw_input,
+      structured_answer,
+
+      ai_score: gradingResult.score,
+      ai_feedback: gradingResult.feedback.join(" "),
+      marks_breakdown: gradingResult.stepResults,
+      final_answer_correct:
+        gradingResult.score === question.total_marks,
+
+      review_status: "ai_graded"
+    });
+
+    res.status(201).json(submission);
+
+  } catch (err) {
+    res.status(500).json({ err: err.message });
+  }
+};
+
+// UPDATE SUBMISSION (Student)
+const updateSubmission = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id);
+
+    if (!submission) {
+      return res.status(404).json({ err: "Submission not found" });
+    }
+
+    // Only owner can edit
+    if (submission.studentId.toString() !== req.user.id) {
+      return res.status(403).json({ err: "Not authorized" });
+    }
+
+    // Cannot edit after teacher review
+    if (submission.review_status === "reviewed") {
+      return res.status(403).json({
+        err: "Cannot edit after teacher review"
+      });
+    }
+
+    // Get question
+    const question = await Question.findById(submission.questionId);
+
+    // Re-grade updated answer
+    const gradingResult = gradeAnswer(req.body.structured_answer, question);
+
+    // Update fields
+    submission.raw_input = req.body.raw_input || submission.raw_input;
+    submission.structured_answer = req.body.structured_answer;
+
+    submission.ai_score = gradingResult.score;
+    submission.ai_feedback = gradingResult.feedback.join(" ");
+    submission.marks_breakdown = gradingResult.stepResults;
+    submission.final_answer_correct =
+      gradingResult.score === question.total_marks;
+
+    submission.review_status = "ai_graded";
+
+    await submission.save();
+
+    res.json(submission);
+
+  } catch (err) {
+    res.status(500).json({ err: err.message });
+  }
+};
+
+// REVIEW SUBMISSION (Teacher)
+
+const reviewSubmission = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id);
+
+    if (!submission) {
+      return res.status(404).json({ err: "Submission not found" });
+    }
+
+    // Teacher sets score + feedback
+    submission.teacher_score = req.body.teacher_score;
+    submission.teacher_feedback = req.body.teacher_feedback;
+
+    submission.reviewed_by = req.user.id;
+    submission.reviewedAt = new Date();
+
+    submission.review_status = "reviewed";
+
+    // Final output (teacher overrides AI)
+    submission.final_score =
+      req.body.teacher_score ?? submission.ai_score;
+
+    submission.final_feedback =
+      req.body.teacher_feedback ?? submission.ai_feedback;
+
+    await submission.save();
+
+    res.json(submission);
+
+  } catch (err) {
+    res.status(500).json({ err: err.message });
+  }
+};
+
+module.exports = {
+  createSubmission,
+  updateSubmission,
+  reviewSubmission
+};
