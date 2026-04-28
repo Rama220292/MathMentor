@@ -7,7 +7,7 @@ const { sendVerificationEmail } = require("../services/emailService");
 
 const saltRounds = 11;
 
-exports.signup = async (req, res) => {
+const signup = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -45,7 +45,7 @@ exports.signup = async (req, res) => {
 };
 
 
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
 };
 
 
-exports.verifyEmail = async (req, res) => {
+const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
 
@@ -102,3 +102,5 @@ exports.verifyEmail = async (req, res) => {
     res.status(500).json({ err: err.message });
   }
 };
+
+module.exports = { signup, login, verifyEmail };
