@@ -61,15 +61,14 @@ const questionSchema = new mongoose.Schema({
 
 // calculate total_marks
 
-questionSchema.pre("save", function (next) {
-  const stepMarks = this.model_answer.steps.reduce(
+questionSchema.pre("save", async function () {
+  const stepMarks = (this.model_answer.steps || []).reduce(
     (sum, step) => sum + (step.marks || 0),
     0
   );
 
   this.total_marks = stepMarks + (this.final_answer_marks || 0);
 
-  next();
 });
 
 

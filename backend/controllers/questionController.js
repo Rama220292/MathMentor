@@ -69,17 +69,41 @@ const getQuestionById = async (req, res) => {
 // UPDATE QUESTION (Teacher)
 const updateQuestion = async (req, res) => {
   try {
-    // Find existing question
     const question = await Question.findById(req.params.id);
 
     if (!question) {
       return res.status(404).json({ err: "Question not found" });
     }
 
-    // Update fields manually
-    Object.assign(question, req.body);
+    if (req.body.title !== undefined) {
+      question.title = req.body.title;
+    }
 
-    // Recalculate total_marks
+    if (req.body.question_text !== undefined) {
+      question.question_text = req.body.question_text;
+    }
+
+    if (req.body.topic !== undefined) {
+      question.topic = req.body.topic;
+    }
+
+    if (req.body.level !== undefined) {
+      question.level = req.body.level;
+    }
+
+    if (req.body.model_answer !== undefined) {
+      question.model_answer = req.body.model_answer;
+    }
+
+    if (req.body.final_answer_marks !== undefined) {
+      question.final_answer_marks = req.body.final_answer_marks;
+    }
+
+    if (req.body.isPublished !== undefined) {
+      question.isPublished = req.body.isPublished;
+    }
+
+    // recalculate total_marks
     const stepMarks = (question.model_answer.steps || []).reduce(
       (sum, step) => sum + (step.marks || 0),
       0
@@ -88,7 +112,6 @@ const updateQuestion = async (req, res) => {
     question.total_marks =
       stepMarks + (question.final_answer_marks || 0);
 
-    // 4. Save (this ALSO triggers pre("save") if present)
     await question.save();
 
     res.json(question);
