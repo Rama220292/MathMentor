@@ -1,6 +1,7 @@
 const Submission = require("../models/Submission");
 const Question = require("../models/Question");
 const gradeAnswer = require("../services/gradingService");
+const gradeWithAI = require("../services/aiService");
 const { createSubmissionSchema, updateSubmissionSchema, reviewSubmissionSchema } = require("../validators/submissionValidator");
 
 // CREATE SUBMISSION (Student)
@@ -18,6 +19,9 @@ const createSubmission = async (req, res) => {
     // Grade using gradingService
     const gradingResult = gradeAnswer(structured_answer, question);
 
+    // Grade using aiService
+    const aiResult = await gradeWithAI(structured_answer, question);
+
     // Save submission
     const submission = await Submission.create({
       studentId: req.user.id,
@@ -25,8 +29,8 @@ const createSubmission = async (req, res) => {
       raw_input,
       structured_answer,
 
-      ai_score: gradingResult.score,
-      ai_feedback: gradingResult.feedback.join(" "),
+      ai_score: aiResult.score,
+      ai_feedback: aiResult.feedback,
       
       marks_breakdown: gradingResult.stepResults.map((step, index) => ({
         step_index: index,
@@ -51,7 +55,6 @@ const createSubmission = async (req, res) => {
 // UPDATE SUBMISSION (Student)
 const updateSubmission = async (req, res) => {
   try {
-  
     const submission = await Submission.findById(req.params.id);
 
     if (!submission) {
@@ -70,24 +73,40 @@ const updateSubmission = async (req, res) => {
       });
     }
 
-    // Get question
     const question = await Question.findById(submission.questionId);
 
-    // Re-grade updated answer
+    // Deterministic grading
     const gradingResult = gradeAnswer(req.body.structured_answer, question);
 
-    // Update fields
+    // AI grading
+    let aiResult = { score: 0, feedback: "" };
+
+    try {
+      aiResult = await gradeWithAI(req.body.structured_answer, question);
+    } catch (err) {
+      console.error("AI grading failed:", err.message);
+    }
+
+    //  Update fields
     submission.raw_input = req.body.raw_input || submission.raw_input;
     submission.structured_answer = req.body.structured_answer;
 
-    submission.ai_score = gradingResult.score;
-    submission.ai_feedback = gradingResult.feedback.join(" ");
+    // Deterministic results
     submission.marks_breakdown = gradingResult.stepResults.map((step, index) => ({
       step_index: index,
       marks_awarded: step.marksAwarded || 0,
       feedback: step.correct ? "Correct" : "Incorrect"
     }));
+
     submission.final_answer_correct = gradingResult.finalCorrect;
+
+    // Scores
+    submission.ai_score = aiResult.score;
+    submission.ai_feedback = aiResult.feedback;
+
+    // Decide final score strategy
+    submission.final_score = gradingResult.score; 
+    submission.final_feedback = aiResult.feedback;
 
     submission.review_status = "ai_graded";
 
