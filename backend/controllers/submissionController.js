@@ -1,10 +1,12 @@
 const Submission = require("../models/Submission");
 const Question = require("../models/Question");
 const gradeAnswer = require("../services/gradingService");
+const { createSubmissionSchema, updateSubmissionSchema, reviewSubmissionSchema } = require("../validators/submissionValidator");
 
 // CREATE SUBMISSION (Student)
 const createSubmission = async (req, res) => {
   try {
+
     const { questionId, raw_input, structured_answer } = req.body;
 
     // Get question
@@ -25,7 +27,12 @@ const createSubmission = async (req, res) => {
 
       ai_score: gradingResult.score,
       ai_feedback: gradingResult.feedback.join(" "),
-      marks_breakdown: gradingResult.stepResults,
+      
+      marks_breakdown: gradingResult.stepResults.map((step, index) => ({
+        step_index: index,
+        marks_awarded: step.marksAwarded || 0,
+        feedback: step.correct ? "Correct" : "Incorrect"
+      })),
       final_answer_correct:
         gradingResult.score === question.total_marks,
 
@@ -42,6 +49,7 @@ const createSubmission = async (req, res) => {
 // UPDATE SUBMISSION (Student)
 const updateSubmission = async (req, res) => {
   try {
+  
     const submission = await Submission.findById(req.params.id);
 
     if (!submission) {
@@ -72,7 +80,11 @@ const updateSubmission = async (req, res) => {
 
     submission.ai_score = gradingResult.score;
     submission.ai_feedback = gradingResult.feedback.join(" ");
-    submission.marks_breakdown = gradingResult.stepResults;
+    submission.marks_breakdown = gradingResult.stepResults.map((step, index) => ({
+      step_index: index,
+      marks_awarded: step.marksAwarded || 0,
+      feedback: step.correct ? "Correct" : "Incorrect"
+    }));
     submission.final_answer_correct =
       gradingResult.score === question.total_marks;
 
@@ -91,6 +103,7 @@ const updateSubmission = async (req, res) => {
 
 const reviewSubmission = async (req, res) => {
   try {
+   
     const submission = await Submission.findById(req.params.id);
 
     if (!submission) {
