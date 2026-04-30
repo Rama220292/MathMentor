@@ -30,7 +30,11 @@ const getQuestions = async (req, res) => {
   try {
     const { topic, level } = req.query;
 
-    let filter = { isPublished: true };
+     let filter = {};
+
+    if (req.user.role === "student") {
+      filter.isPublished = true;
+    }
 
     if (topic) filter.topic = topic;
     if (level) filter.level = level;
