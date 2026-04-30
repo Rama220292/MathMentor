@@ -1,7 +1,14 @@
 const mongoose = require("mongoose")
 const Question = require("../models/Question");
 
+const calculateTotalMarks = (model_answer, final_answer_marks) => {
+  const stepMarks = model_answer.steps.reduce(
+    (sum, step) => sum + (step.marks || 0),
+    0
+  );
 
+  return stepMarks + final_answer_marks;
+};
 // CREATE QUESTION (Teacher)
 const createQuestion = async (req, res) => {
   try {
@@ -58,23 +65,34 @@ const getQuestionById = async (req, res) => {
 // UPDATE QUESTION (Teacher)
 const updateQuestion = async (req, res) => {
   try {
-    const updatedQuestion = await Question.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    // Find existing question
+    const question = await Question.findById(req.params.id);
 
-    if (!updatedQuestion) {
+    if (!question) {
       return res.status(404).json({ err: "Question not found" });
     }
 
-    res.json(updatedQuestion);
+    // Update fields manually
+    Object.assign(question, req.body);
+
+    // Recalculate total_marks
+    const stepMarks = (question.model_answer.steps || []).reduce(
+      (sum, step) => sum + (step.marks || 0),
+      0
+    );
+
+    question.total_marks =
+      stepMarks + (question.final_answer_marks || 0);
+
+    // 4. Save (this ALSO triggers pre("save") if present)
+    await question.save();
+
+    res.json(question);
 
   } catch (err) {
     res.status(500).json({ err: err.message });
   }
 };
-
 
 // DELETE QUESTION (Teacher)
 const deleteQuestion = async (req, res) => {

@@ -44,7 +44,7 @@ const questionSchema = new mongoose.Schema({
 
   total_marks: {
     type: Number,
-    required: true
+    default: 0
   },
 
   created_by: {
@@ -58,5 +58,19 @@ const questionSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
+
+// calculate total_marks
+
+questionSchema.pre("save", function (next) {
+  const stepMarks = this.model_answer.steps.reduce(
+    (sum, step) => sum + (step.marks || 0),
+    0
+  );
+
+  this.total_marks = stepMarks + (this.final_answer_marks || 0);
+
+  next();
+});
+
 
 module.exports = mongoose.model("Question", questionSchema);

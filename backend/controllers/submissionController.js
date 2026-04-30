@@ -33,8 +33,10 @@ const createSubmission = async (req, res) => {
         marks_awarded: step.marksAwarded || 0,
         feedback: step.correct ? "Correct" : "Incorrect"
       })),
-      final_answer_correct:
-        gradingResult.score === question.total_marks,
+
+      final_answer_correct: gradingResult.finalCorrect,
+      final_score: gradingResult.score,
+      final_feedback: gradingResult.feedback.join(" "),
 
       review_status: "ai_graded"
     });
@@ -85,8 +87,7 @@ const updateSubmission = async (req, res) => {
       marks_awarded: step.marksAwarded || 0,
       feedback: step.correct ? "Correct" : "Incorrect"
     }));
-    submission.final_answer_correct =
-      gradingResult.score === question.total_marks;
+    submission.final_answer_correct = gradingResult.finalCorrect;
 
     submission.review_status = "ai_graded";
 
